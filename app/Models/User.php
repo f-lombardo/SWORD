@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -31,4 +32,16 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
+
+    /** @return HasMany<Server, $this> */
+    public function servers(): HasMany
+    {
+        return $this->hasMany(Server::class);
+    }
+
+    // /** @return HasMany<Site, $this> */
+    // public function sites(): HasMany
+    // {
+    //     return $this->hasMany(Site::class);
+    // }
 }

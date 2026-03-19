@@ -29,6 +29,12 @@ The defaults should be fine in most cases.
 ./vendor/bin/sail artisan migrate:fresh --seed
 ```
 
+## Install NPM dependencies
+
+```shell
+sail npm install
+```
+
 ## Start Vite with Hot Module Reloading
 
 ```shell

@@ -2,18 +2,18 @@
 
 namespace Database\Seeders;
 
+use App\Models\Server;
 use App\Models\Site;
 use Illuminate\Database\Seeder;
 
 class SiteSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        Site::factory(3)->create();
-        Site::factory()->installed()->create();
-        Site::factory()->failed()->create();
+        Server::with('user')->get()->each(function (Server $server): void {
+            Site::factory(2)->for($server)->for($server->user)->create();
+            Site::factory()->for($server)->for($server->user)->installed()->create();
+            Site::factory()->for($server)->for($server->user)->failed()->create();
+        });
     }
 }

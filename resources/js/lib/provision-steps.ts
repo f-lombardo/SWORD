@@ -13,9 +13,6 @@ export const STEP_LABELS: Record<string, string> = {
 export const STEP_KEYS = Object.keys(STEP_LABELS);
 
 export function stepLabel(key: string | null): string {
-    if (!key) {
-return 'Provisioning…';
-}
-
+    if (!key) return 'Provisioning…';
     return STEP_LABELS[key] ?? key;
 }

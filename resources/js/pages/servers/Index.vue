@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     Server,
@@ -9,10 +10,8 @@ import {
     XCircle,
     ChevronRight,
 } from 'lucide-vue-next';
-import { ref, computed, watch } from 'vue';
-import InputError from '@/components/InputError.vue';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -22,8 +21,8 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { stepLabel } from '@/lib/provision-steps';
+import { Button } from '@/components/ui/button';
+import InputError from '@/components/InputError.vue';
 import {
     index as serversIndex,
     store as serversStore,
@@ -31,6 +30,7 @@ import {
     generateName as serversGenerateName,
 } from '@/routes/servers';
 import type { BreadcrumbItem } from '@/types';
+import { stepLabel } from '@/lib/provision-steps';
 
 interface ServerRow {
     id: number;
@@ -72,9 +72,7 @@ watch(showAddModal, async (open) => {
     if (!open) {
         return;
     }
-
     hostnameManuallyEdited.value = false;
-
     try {
         const response = await fetch(serversGenerateName.url());
         const data = await response.json();

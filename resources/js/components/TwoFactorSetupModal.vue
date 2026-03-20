@@ -98,7 +98,6 @@ watch(
     async (isOpen) => {
         if (!isOpen) {
             resetModalState();
-
             return;
         }
 

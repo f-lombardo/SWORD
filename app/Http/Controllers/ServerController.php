@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Servers\StoreServerRequest;
+use App\Http\Resources\ServerResource;
 use App\Models\Server;
 use App\Services\ServerNameGenerator;
 use Illuminate\Http\JsonResponse;
@@ -19,17 +20,7 @@ class ServerController extends Controller
             ->servers()
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn (Server $server) => [
-                'id' => $server->id,
-                'name' => $server->name,
-                'ip_address' => $server->ip_address,
-                'provider' => $server->provider,
-                'region' => $server->region,
-                'status' => $server->status,
-                'current_step' => $server->current_step,
-                'provisioned_at' => $server->provisioned_at?->toIso8601String(),
-                'created_at' => $server->created_at->toIso8601String(),
-            ]);
+            ->map(fn (Server $server) => (new ServerResource($server))->toArray($request));
 
         return Inertia::render('servers/Index', [
             'servers' => $servers,
@@ -68,20 +59,10 @@ class ServerController extends Controller
         );
 
         return Inertia::render('servers/Show', [
-            'server' => [
-                'id' => $server->id,
-                'name' => $server->name,
-                'ip_address' => $server->ip_address,
-                'provider' => $server->provider,
-                'region' => $server->region,
-                'status' => $server->status,
-                'current_step' => $server->current_step,
-                'provision_log' => $server->provision_log ?? [],
-                'provisioned_at' => $server->provisioned_at?->toIso8601String(),
-                'created_at' => $server->created_at->toIso8601String(),
-                'wget_command' => $wgetCommand,
+            'server' => array_merge((new ServerResource($server))->resolve(), [
                 'callback_signature' => $server->callback_signature,
-            ],
+                'wget_command' => $wgetCommand,
+            ]),
         ]);
     }
 

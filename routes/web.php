@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\ServerProvisionCallbackController;
+use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -20,8 +21,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('servers', ServerController::class)
         ->only(['index', 'store', 'show']);
 
-    // Route::resource('sites', SiteController::class)
-    //     ->only(['index', 'store', 'show']);
+    Route::resource('sites', SiteController::class)
+        ->only(['index', 'store', 'show']);
 });
 
 // Public, token-secured — no auth required

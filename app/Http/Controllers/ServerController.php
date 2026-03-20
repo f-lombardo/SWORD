@@ -57,7 +57,7 @@ class ServerController extends Controller
     {
         abort_unless($server->user_id === $request->user()->id, 403);
 
-        $provisionUrl = rtrim(config('app.url'), '/') . route('servers.scripts.provision', [
+        $provisionUrl = rtrim(config('app.url'), '/').route('servers.scripts.provision', [
             'server' => $server->id,
             'token' => $server->provision_token,
         ], false);

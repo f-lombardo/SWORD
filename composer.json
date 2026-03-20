@@ -52,10 +52,6 @@
         "mfs": [
             "@php artisan migrate:fresh --seed"
         ],
-        "mfsd": [
-            "@php artisan migrate:fresh --seed",
-            "@php artisan db:seed --class=DevSeeder"
-        ],
         "mf": [
             "@php artisan migrate:fresh"
         ],

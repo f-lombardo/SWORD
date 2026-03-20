@@ -41,6 +41,8 @@ The defaults should be fine in most cases.
 ./vendor/bin/sail npm run dev
 ```
 
+The above steps are performed by the [setup](scrpts/setup) script.
+
 ## Connect to the Laravel application
 
 Open your browser and go to the URL specified in the .env file as `APP_URL`, or simply go to `http://localhost`.

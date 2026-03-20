@@ -12,6 +12,8 @@ use Laravel\Fortify\Features;
 Route::redirect('/', '/servers')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
+
     Route::get('servers/generate-name', [ServerController::class, 'generateName'])
         ->name('servers.generate-name');
 

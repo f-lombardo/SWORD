@@ -29,6 +29,15 @@ The defaults should be fine in most cases.
 ./vendor/bin/sail artisan migrate:fresh --seed
 ```
 
+# Shortcuts
+```shell
+# php artisan migrate:fresh --seed
+composer mfs 
+# php artisan migrate:fresh
+composer mf
+
+```
+
 ## Install NPM dependencies
 
 ```shell

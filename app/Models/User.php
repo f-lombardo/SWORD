@@ -39,9 +39,9 @@ class User extends Authenticatable
         return $this->hasMany(Server::class);
     }
 
-    // /** @return HasMany<Site, $this> */
-    // public function sites(): HasMany
-    // {
-    //     return $this->hasMany(Site::class);
-    // }
+    /** @return HasMany<Site, $this> */
+    public function sites(): HasMany
+    {
+        return $this->hasMany(Site::class);
+    }
 }

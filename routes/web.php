@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\ServerProvisionCallbackController;
+use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -12,14 +13,15 @@ use Laravel\Fortify\Features;
 Route::redirect('/', '/servers')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
     Route::get('servers/generate-name', [ServerController::class, 'generateName'])
         ->name('servers.generate-name');
 
     Route::resource('servers', ServerController::class)
         ->only(['index', 'store', 'show', 'destroy']);
 
-    // Route::resource('sites', SiteController::class)
-    //     ->only(['index', 'store', 'show']);
+    Route::resource('sites', SiteController::class)
+        ->only(['index', 'store', 'show']);
 });
 
 // Public, token-secured — no auth required

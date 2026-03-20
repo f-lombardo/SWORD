@@ -82,7 +82,7 @@ services:
             - mysql
     cloudflared:
         image: 'cloudflare/cloudflared:latest'
-        command: 'tunnel --metrics 0.0.0.0:2000 --no-autoupdate --url http://laravel.test:80'
+        command: 'tunnel --protocol http2 --metrics 0.0.0.0:2000 --no-autoupdate --url http://laravel.test:80'
         ports:
             - '${FORWARD_CLOUDFLARED_METRICS_PORT:-2000}:2000'
         networks:

@@ -33,9 +33,13 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { STEP_LABELS, STEP_KEYS } from '@/lib/provision-steps';
 import { index as backupDestinationsIndex } from '@/routes/backup-destinations';
-import { index as serversIndex, show as serversShow, destroy as serversDestroy } from '@/routes/servers';
 import { store as backupSchedulesStore, destroy as backupSchedulesDestroy } from '@/routes/servers/backup-schedules';
 import type { BreadcrumbItem } from '@/types';
+import {
+    index as serversIndex,
+    show as serversShow,
+    destroy as serversDestroy,
+} from '@/routes/servers';
 
 interface BackupScheduleRow {
     id: number;
@@ -381,7 +385,11 @@ function deleteServer() {
 
                     <Dialog v-model:open="showDeleteDialog">
                         <DialogTrigger as-child>
-                            <Button variant="ghost" size="icon" class="mt-1 text-muted-foreground hover:text-destructive">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                class="mt-1 text-muted-foreground hover:text-destructive"
+                            >
                                 <Trash2 class="size-4" />
                             </Button>
                         </DialogTrigger>
@@ -389,7 +397,9 @@ function deleteServer() {
                             <DialogHeader>
                                 <DialogTitle>Delete server</DialogTitle>
                                 <DialogDescription>
-                                    Are you sure you want to delete <strong>{{ server.name }}</strong>? This action cannot be undone.
+                                    Are you sure you want to delete
+                                    <strong>{{ server.name }}</strong
+                                    >? This action cannot be undone.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
@@ -401,7 +411,10 @@ function deleteServer() {
                                     :disabled="deleteForm.processing"
                                     @click="deleteServer"
                                 >
-                                    <Loader2 v-if="deleteForm.processing" class="size-4 animate-spin" />
+                                    <Loader2
+                                        v-if="deleteForm.processing"
+                                        class="size-4 animate-spin"
+                                    />
                                     Delete server
                                 </Button>
                             </DialogFooter>

@@ -4,6 +4,7 @@ import {
     CalendarClock,
     Database,
     FolderGit2,
+    Globe,
     Server,
 } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
@@ -22,6 +23,7 @@ import {
 import { index as backupDestinationsIndex } from '@/routes/backup-destinations';
 import { index as backupSchedulesIndex } from '@/routes/backup-schedules';
 import { index as serversIndex } from '@/routes/servers';
+import { index as sitesIndex } from '@/routes/sites';
 import type { NavItem } from '@/types';
 
 const platformNavItems: NavItem[] = [
@@ -29,6 +31,11 @@ const platformNavItems: NavItem[] = [
         title: 'Servers',
         href: serversIndex(),
         icon: Server,
+    },
+    {
+        title: 'Sites',
+        href: sitesIndex(),
+        icon: Globe,
     },
 ];
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Servers\StoreServerRequest;
 use App\Http\Resources\ServerResource;
+use App\Jobs\RunAnsible;
 use App\Models\BackupDestination;
 use App\Models\Server;
 use App\Services\ServerNameGenerator;
@@ -41,6 +42,9 @@ class ServerController extends Controller
     public function store(StoreServerRequest $request): RedirectResponse
     {
         $server = $request->user()->servers()->create($request->validated());
+
+        // @TODO This will be a problem, if it's executed before adding the public key.
+        dispatch(new RunAnsible($server->id));
 
         return redirect()->route('servers.show', $server);
     }

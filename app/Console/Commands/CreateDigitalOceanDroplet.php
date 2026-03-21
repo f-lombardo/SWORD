@@ -14,7 +14,7 @@ class CreateDigitalOceanDroplet extends Command
                             {--key= : The API key}
                             {--name= : The droplet name (a random one will be generated if not provided)}
                             {--region=nyc1 : The region}
-                            {--size=s-1vcpu-1gb : The size}
+                            {--type=s-1vcpu-1gb : The droplet type}
                             {--image=ubuntu-24-04-x64 : The image}
                             {--public-key= : Name of an existing DigitalOcean SSH key, or a raw public key string (required)}';
 
@@ -52,7 +52,7 @@ class CreateDigitalOceanDroplet extends Command
                 apiKey: $apiKey,
                 name: $this->option('name') ?? 'droplet-'.Str::lower(Str::random(8)),
                 region: (string) $this->option('region'),
-                serverType: (string) $this->option('size'),
+                serverType: (string) $this->option('type'),
                 image: (string) $this->option('image'),
                 publicKey: $publicKeyOption,
             ));

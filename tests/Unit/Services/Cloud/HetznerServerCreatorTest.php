@@ -61,7 +61,7 @@ test('HetznerServerCreator uploads a raw SSH key and returns server details', fu
             'ssh_keys' => [44],
             'public_net' => [
                 'ipv4_enabled' => true,
-                'ipv6_enabled' => true,
+                'ipv6_enabled' => false,
             ],
         ]);
 });

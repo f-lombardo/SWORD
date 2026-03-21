@@ -1,13 +1,8 @@
 <?php
 
-namespace App\Services\Hetzner;
+namespace App\Services\Cloud\Hetzner;
 
-use GuzzleHttp\Psr7\HttpFactory;
-use Illuminate\Support\Str;
-use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use GuzzleHttp\Psr7\HttpFactory;use Illuminate\Support\Str;use Psr\Http\Client\ClientExceptionInterface;use Psr\Http\Client\ClientInterface;use Psr\Http\Message\RequestInterface;use Psr\Http\Message\ResponseInterface;
 
 class HetznerServerCreator
 {
@@ -69,8 +64,8 @@ class HetznerServerCreator
             'image' => $data->image,
             'ssh_keys' => [$sshKeyId],
             'public_net' => [
-                'ipv4_enabled' => $data->enableIpv4,
-                'ipv6_enabled' => $data->enableIpv6,
+                'ipv4_enabled' => true,
+                'ipv6_enabled' => false,
             ],
         ]);
 

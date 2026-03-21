@@ -1,13 +1,8 @@
 <?php
 
-namespace App\Services\DigitalOcean;
+namespace App\Services\Cloud\DigitalOcean;
 
-use GuzzleHttp\Psr7\HttpFactory;
-use Illuminate\Support\Str;
-use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use GuzzleHttp\Psr7\HttpFactory;use Illuminate\Support\Str;use Psr\Http\Client\ClientExceptionInterface;use Psr\Http\Client\ClientInterface;use Psr\Http\Message\RequestInterface;use Psr\Http\Message\ResponseInterface;
 
 class DigitalOceanDropletCreator
 {
@@ -46,7 +41,7 @@ class DigitalOceanDropletCreator
             dropletId: (int) $droplet['id'],
             name: (string) $droplet['name'],
             region: (string) ($droplet['region']['slug'] ?? $data->region),
-            size: (string) ($droplet['size_slug'] ?? $data->size),
+            size: (string) ($droplet['size_slug'] ?? $data->serverType),
             status: (string) $droplet['status'],
             publicIp: $this->waitForPublicIp(
                 dropletId: (int) $droplet['id'],
@@ -65,7 +60,7 @@ class DigitalOceanDropletCreator
         $payload = $this->encodePayload([
             'name' => $data->name,
             'region' => $data->region,
-            'size' => $data->size,
+            'size' => $data->serverType,
             'image' => $data->image,
             'ssh_keys' => [$sshKeyId],
         ]);

@@ -2,11 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Hetzner\CreateHetznerServerData;
-use App\Services\Hetzner\HetznerServerCreator;
-use App\Services\Hetzner\HetznerServerException;
-use Illuminate\Console\Command;
-use Illuminate\Support\Str;
+use App\Services\Cloud\Hetzner\CreateHetznerServerData;use App\Services\Cloud\Hetzner\HetznerServerCreator;use App\Services\Cloud\Hetzner\HetznerServerException;use Illuminate\Console\Command;use Illuminate\Support\Str;
 
 class CreateHetznerServer extends Command
 {

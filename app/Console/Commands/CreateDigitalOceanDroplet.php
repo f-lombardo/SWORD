@@ -2,11 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\DigitalOcean\CreateDigitalOceanDropletData;
-use App\Services\DigitalOcean\DigitalOceanDropletCreator;
-use App\Services\DigitalOcean\DigitalOceanDropletException;
-use Illuminate\Console\Command;
-use Illuminate\Support\Str;
+use App\Services\Cloud\DigitalOcean\CreateDigitalOceanDropletData;use App\Services\Cloud\DigitalOcean\DigitalOceanDropletCreator;use App\Services\Cloud\DigitalOcean\DigitalOceanDropletException;use Illuminate\Console\Command;use Illuminate\Support\Str;
 
 class CreateDigitalOceanDroplet extends Command
 {
@@ -52,7 +48,7 @@ class CreateDigitalOceanDroplet extends Command
                 apiKey: $apiKey,
                 name: $this->option('name') ?? 'droplet-'.Str::lower(Str::random(8)),
                 region: (string) $this->option('region'),
-                size: (string) $this->option('size'),
+                serverType: (string) $this->option('size'),
                 image: (string) $this->option('image'),
                 publicKey: $publicKeyOption,
             ));

@@ -1,12 +1,6 @@
 <?php
 
-use App\Services\Hetzner\CreateHetznerServerData;
-use App\Services\Hetzner\HetznerServerCreator;
-use GuzzleHttp\Psr7\HttpFactory;
-use GuzzleHttp\Psr7\Response;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use App\Services\Cloud\Hetzner\CreateHetznerServerData;use App\Services\Cloud\Hetzner\HetznerServerCreator;use GuzzleHttp\Psr7\HttpFactory;use GuzzleHttp\Psr7\Response;use Psr\Http\Client\ClientInterface;use Psr\Http\Message\RequestInterface;use Psr\Http\Message\ResponseInterface;
 
 test('HetznerServerCreator uploads a raw SSH key and returns server details', function () {
     $client = new class([new Response(201, [], json_encode(['ssh_key' => ['id' => 44, 'name' => 'uploaded-key']])), new Response(201, [], json_encode(['server' => ['id' => 999, 'name' => 'sword-web', 'status' => 'initializing', 'server_type' => ['name' => 'cx22'], 'datacenter' => ['location' => ['name' => 'nbg1']]]])), new Response(200, [], json_encode(['server' => ['public_net' => ['ipv4' => ['ip' => '203.0.113.10']]]]))]) implements ClientInterface

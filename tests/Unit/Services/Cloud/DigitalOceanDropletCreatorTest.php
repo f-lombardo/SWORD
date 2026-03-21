@@ -1,6 +1,12 @@
 <?php
 
-use App\Services\Cloud\DigitalOcean\CreateDigitalOceanDropletData;use App\Services\Cloud\DigitalOcean\DigitalOceanDropletCreator;use GuzzleHttp\Psr7\HttpFactory;use GuzzleHttp\Psr7\Response;use Psr\Http\Client\ClientInterface;use Psr\Http\Message\RequestInterface;use Psr\Http\Message\ResponseInterface;
+use App\Services\Cloud\DigitalOcean\CreateDigitalOceanDropletData;
+use App\Services\Cloud\DigitalOcean\DigitalOceanDropletCreator;
+use GuzzleHttp\Psr7\HttpFactory;
+use GuzzleHttp\Psr7\Response;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 
 test('DigitalOceanDropletCreator uploads a raw SSH key and returns droplet details', function () {
     $client = new class([new Response(201, [], json_encode(['ssh_key' => ['id' => 44, 'name' => 'uploaded-key']])), new Response(202, [], json_encode(['droplet' => ['id' => 999, 'name' => 'sword-web', 'region' => ['slug' => 'ams3'], 'size_slug' => 's-1vcpu-1gb', 'status' => 'new']])), new Response(200, [], json_encode(['droplet' => ['networks' => ['v4' => [['type' => 'public', 'ip_address' => '203.0.113.10']]]]]))]) implements ClientInterface

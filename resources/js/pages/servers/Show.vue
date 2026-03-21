@@ -14,6 +14,7 @@ import {
     Trash2,
     Calendar,
     Plus,
+    Globe,
     Play,
     Archive,
 } from 'lucide-vue-next';
@@ -44,6 +45,7 @@ import {
     store as backupSchedulesStore,
     destroy as backupSchedulesDestroy,
 } from '@/routes/servers/backup-schedules';
+import { show as sitesShow } from '@/routes/sites';
 import type { BreadcrumbItem } from '@/types';
 
 interface BackupRunSummary {
@@ -101,6 +103,7 @@ interface ServerDetail {
     current_step: string | null;
     provision_log: ProvisionStep[];
     provisioned_at: string | null;
+    ssh_public_key: string | null;
     created_at: string;
     wget_command: string;
     callback_signature: string;
@@ -108,10 +111,20 @@ interface ServerDetail {
     last_pinged_at: string | null;
 }
 
+interface SiteRow {
+    id: number;
+    domain: string;
+    php_version: string;
+    status: string;
+    installed_at: string | null;
+    created_at: string;
+}
+
 const props = defineProps<{
     server: ServerDetail;
     backupSchedules: BackupScheduleRow[];
     backupDestinations: BackupDestinationOption[];
+    sites: SiteRow[];
     backupRuns: BackupRunRow[];
 }>();
 
@@ -554,7 +567,15 @@ function deleteServer() {
                         </div>
                     </div>
                     <div class="flex flex-col gap-3 p-5">
-                        Public Key:
+                        <!-- Public Key label -->
+                        <div class="flex items-center gap-2">
+                            <p
+                                class="text-xs font-medium text-muted-foreground"
+                            >
+                                Public Key
+                            </p>
+                            <div class="h-px flex-1 bg-border" />
+                        </div>
                         <div
                             class="group relative rounded-lg border border-sidebar-border/70 bg-muted/50 dark:border-sidebar-border"
                         >
@@ -564,7 +585,16 @@ function deleteServer() {
                             >
                         </div>
 
-                        Command:
+                        <!-- Command label -->
+                        <div class="flex items-center gap-2">
+                            <p
+                                class="text-xs font-medium text-muted-foreground"
+                            >
+                                Command
+                            </p>
+                            <div class="h-px flex-1 bg-border" />
+                        </div>
+
                         <div
                             class="group relative rounded-lg border border-sidebar-border/70 bg-muted/50 dark:border-sidebar-border"
                         >
@@ -677,7 +707,26 @@ function deleteServer() {
                 </div>
             </template>
 
-            <!-- Provisioned: show log summary -->
+            <!-- Failed state -->
+            <div
+                v-if="isFailed"
+                class="flex items-start gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-5"
+            >
+                <XCircle class="mt-0.5 size-5 shrink-0 text-destructive" />
+                <div>
+                    <p class="font-medium text-destructive">
+                        Provisioning failed
+                    </p>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        The script encountered an unexpected error. Check your
+                        server logs (<code class="text-xs"
+                            >sword-provision.log</code
+                        >) for details, then try provisioning again.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Provisioned: show log, sites, backups -->
             <template v-if="isProvisioned">
                 <div
                     class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
@@ -722,6 +771,82 @@ function deleteServer() {
                                 {{ formatTime(entry.timestamp) }}
                             </span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Sites -->
+                <div
+                    class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
+                >
+                    <div
+                        class="flex items-center gap-3 border-b border-sidebar-border/70 px-5 py-4 dark:border-sidebar-border"
+                    >
+                        <Globe class="size-5 shrink-0 text-muted-foreground" />
+                        <p class="text-sm font-medium">Sites</p>
+                        <span class="ml-auto text-xs text-muted-foreground">
+                            {{ sites.length }}
+                            {{ sites.length === 1 ? 'site' : 'sites' }}
+                        </span>
+                    </div>
+
+                    <div
+                        v-if="sites.length === 0"
+                        class="px-5 py-8 text-center text-sm text-muted-foreground"
+                    >
+                        No sites deployed on this server.
+                    </div>
+
+                    <div
+                        v-else
+                        class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30"
+                    >
+                        <Link
+                            v-for="site in sites"
+                            :key="site.id"
+                            :href="sitesShow(site.id)"
+                            class="flex items-center justify-between px-5 py-3 transition-colors hover:bg-muted/50"
+                        >
+                            <div>
+                                <p class="text-sm font-medium">
+                                    {{ site.domain }}
+                                </p>
+                                <p class="mt-0.5 text-xs text-muted-foreground">
+                                    PHP {{ site.php_version }}
+                                </p>
+                            </div>
+                            <Badge
+                                :variant="
+                                    site.status === 'installed'
+                                        ? 'default'
+                                        : site.status === 'failed'
+                                          ? 'destructive'
+                                          : 'secondary'
+                                "
+                            >
+                                <CheckCircle2
+                                    v-if="site.status === 'installed'"
+                                    class="size-3"
+                                />
+                                <Loader2
+                                    v-else-if="site.status === 'installing'"
+                                    class="size-3 animate-spin"
+                                />
+                                <XCircle
+                                    v-else-if="site.status === 'failed'"
+                                    class="size-3"
+                                />
+                                <Clock v-else class="size-3" />
+                                {{
+                                    site.status === 'installed'
+                                        ? 'Installed'
+                                        : site.status === 'installing'
+                                          ? 'Installing'
+                                          : site.status === 'failed'
+                                            ? 'Failed'
+                                            : 'Pending'
+                                }}
+                            </Badge>
+                        </Link>
                     </div>
                 </div>
 

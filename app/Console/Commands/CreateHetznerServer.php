@@ -16,7 +16,7 @@ class CreateHetznerServer extends Command
 
     protected $description = 'Creates a Hetzner Cloud server';
 
-    private const HETZNER_API_SECRET_PATH = '/run/secrets/hetzner-api';
+    private const HETZNER_API_SECRET_PATH = '/run/secrets/hetzner_api_key';
 
     public function __construct(private readonly HetznerServerCreator $serverCreator)
     {

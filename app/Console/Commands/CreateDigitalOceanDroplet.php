@@ -16,7 +16,7 @@ class CreateDigitalOceanDroplet extends Command
 
     protected $description = 'Creates a DigitalOcean droplet';
 
-    private const DO_API_SECRET_PATH = '/run/secrets/do-api';
+    private const DO_API_SECRET_PATH = '/run/secrets/do_api_key';
 
     public function __construct(private readonly DigitalOceanDropletCreator $dropletCreator)
     {

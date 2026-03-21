@@ -14,6 +14,8 @@ import {
     Trash2,
     Calendar,
     Plus,
+    Play,
+    Archive,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import InputError from '@/components/InputError.vue';
@@ -33,13 +35,25 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { STEP_LABELS, STEP_KEYS } from '@/lib/provision-steps';
 import { index as backupDestinationsIndex } from '@/routes/backup-destinations';
-import { store as backupSchedulesStore, destroy as backupSchedulesDestroy } from '@/routes/servers/backup-schedules';
-import type { BreadcrumbItem } from '@/types';
 import {
     index as serversIndex,
     show as serversShow,
     destroy as serversDestroy,
 } from '@/routes/servers';
+import {
+    store as backupSchedulesStore,
+    destroy as backupSchedulesDestroy,
+} from '@/routes/servers/backup-schedules';
+import type { BreadcrumbItem } from '@/types';
+
+interface BackupRunSummary {
+    id: number;
+    status: string;
+    archive_name: string | null;
+    size_bytes: number | null;
+    duration_seconds: number | null;
+    completed_at: string | null;
+}
 
 interface BackupScheduleRow {
     id: number;
@@ -51,6 +65,19 @@ interface BackupScheduleRow {
     day_of_month: number | null;
     retention_count: number;
     is_enabled: boolean;
+    created_at: string;
+    last_run: BackupRunSummary | null;
+}
+
+interface BackupRunRow {
+    id: number;
+    destination_name: string;
+    status: string;
+    archive_name: string | null;
+    size_bytes: number | null;
+    duration_seconds: number | null;
+    started_at: string | null;
+    completed_at: string | null;
     created_at: string;
 }
 
@@ -77,12 +104,15 @@ interface ServerDetail {
     created_at: string;
     wget_command: string;
     callback_signature: string;
+    is_online: boolean;
+    last_pinged_at: string | null;
 }
 
 const props = defineProps<{
     server: ServerDetail;
     backupSchedules: BackupScheduleRow[];
     backupDestinations: BackupDestinationOption[];
+    backupRuns: BackupRunRow[];
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -111,8 +141,8 @@ const isFailed = computed(() => props.server.status === 'failed');
 
 function startPolling() {
     if (pollInterval) {
-return;
-}
+        return;
+    }
 
     pollInterval = setInterval(() => {
         router.reload({ only: ['server'] });
@@ -188,15 +218,15 @@ function formatTime(iso: string): string {
 // The index of the last logged step (by log order, not step order) — supports re-runs
 const lastCompletedIndex = computed(() => {
     if (isProvisioned.value) {
-return STEP_KEYS.length - 1;
-}
+        return STEP_KEYS.length - 1;
+    }
 
     for (let i = props.server.provision_log.length - 1; i >= 0; i--) {
         const idx = STEP_KEYS.indexOf(props.server.provision_log[i].step);
 
         if (idx !== -1) {
-return idx;
-}
+            return idx;
+        }
     }
 
     return -1;
@@ -204,8 +234,8 @@ return idx;
 
 function isStepCompleted(index: number): boolean {
     if (isProvisioned.value) {
-return true;
-}
+        return true;
+    }
 
     // A step is completed if a later or equal step was logged
     return index <= lastCompletedIndex.value;
@@ -218,12 +248,12 @@ const hasStarted = computed(() =>
 
 function isStepActive(index: number): boolean {
     if (isProvisioned.value) {
-return false;
-}
+        return false;
+    }
 
     if (!hasStarted.value) {
-return false;
-}
+        return false;
+    }
 
     // Show spinner on the step right after the last completed one
     const nextIndex = lastCompletedIndex.value + 1;
@@ -237,12 +267,12 @@ const completedStepKeys = computed(
 
 const progressPercent = computed(() => {
     if (isProvisioned.value) {
-return 100;
-}
+        return 100;
+    }
 
     if (isPending.value) {
-return 0;
-}
+        return 0;
+    }
 
     const done = STEP_KEYS.filter((k) => completedStepKeys.value.has(k)).length;
 
@@ -296,11 +326,14 @@ function confirmDeleteSchedule(schedule: BackupScheduleRow) {
 
 function deleteSchedule() {
     if (!scheduleToDelete.value) {
-return;
-}
+        return;
+    }
 
     deleteScheduleForm.delete(
-        backupSchedulesDestroy({ server: props.server.id, backup_schedule: scheduleToDelete.value.id }).url,
+        backupSchedulesDestroy({
+            server: props.server.id,
+            backup_schedule: scheduleToDelete.value.id,
+        }).url,
         {
             onSuccess: () => {
                 showDeleteScheduleDialog.value = false;
@@ -310,7 +343,15 @@ return;
     );
 }
 
-const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayNames = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+];
 
 function scheduleLabel(schedule: BackupScheduleRow): string {
     if (schedule.frequency === 'weekly' && schedule.day_of_week !== null) {
@@ -322,6 +363,54 @@ function scheduleLabel(schedule: BackupScheduleRow): string {
     }
 
     return `Daily at ${schedule.time}`;
+}
+
+// ── Run backup now ───────────────────────────────────────────
+const runningScheduleId = ref<number | null>(null);
+
+function runBackupNow(schedule: BackupScheduleRow) {
+    runningScheduleId.value = schedule.id;
+    router.post(
+        `/servers/${props.server.id}/backup-schedules/${schedule.id}/run`,
+        {},
+        {
+            onFinish: () => {
+                runningScheduleId.value = null;
+            },
+        },
+    );
+}
+
+// ── Backup run helpers ───────────────────────────────────────
+function runStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+    switch (status) {
+        case 'completed':
+            return 'default';
+        case 'running':
+            return 'secondary';
+        case 'failed':
+            return 'destructive';
+        default:
+            return 'outline';
+    }
+}
+
+function formatBytes(bytes: number | null): string {
+    if (bytes === null) return '—';
+    if (bytes < 1_000) return `${bytes} B`;
+    if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+    if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+    return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+}
+
+function formatDuration(seconds: number | null): string {
+    if (seconds === null) return '—';
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins < 60) return `${mins}m ${secs}s`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs}h ${mins % 60}m`;
 }
 
 // ── Delete server ────────────────────────────────────────────
@@ -372,6 +461,22 @@ function deleteServer() {
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    <Badge
+                        v-if="isProvisioned"
+                        variant="outline"
+                        class="mt-1 gap-1.5"
+                    >
+                        <span
+                            class="size-1.5 rounded-full"
+                            :class="
+                                server.is_online
+                                    ? 'bg-green-500'
+                                    : 'animate-pulse bg-red-500'
+                            "
+                        />
+                        {{ server.is_online ? 'Online' : 'Offline' }}
+                    </Badge>
+
                     <Badge :variant="statusVariant(server.status)" class="mt-1">
                         <CheckCircle2 v-if="isProvisioned" class="size-3" />
                         <Loader2
@@ -446,6 +551,16 @@ function deleteServer() {
                         </div>
                     </div>
                     <div class="flex flex-col gap-3 p-5">
+                         Public Key:
+                        <div
+                            class="group relative rounded-lg border border-sidebar-border/70 bg-muted/50 dark:border-sidebar-border"
+                        >
+                            <pre
+                                class="overflow-x-auto p-4 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-foreground"
+                            >{{ server.ssh_public_key }}</pre>
+                        </div>
+
+                        Command:
                         <div
                             class="group relative rounded-lg border border-sidebar-border/70 bg-muted/50 dark:border-sidebar-border"
                         >
@@ -558,25 +673,6 @@ function deleteServer() {
                 </div>
             </template>
 
-            <!-- Failed state -->
-            <div
-                v-if="isFailed"
-                class="flex items-start gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-5"
-            >
-                <XCircle class="mt-0.5 size-5 shrink-0 text-destructive" />
-                <div>
-                    <p class="font-medium text-destructive">
-                        Provisioning failed
-                    </p>
-                    <p class="mt-1 text-sm text-muted-foreground">
-                        The script encountered an unexpected error. Check your
-                        server logs (<code class="text-xs"
-                            >sword-provision.log</code
-                        >) for details, then try provisioning again.
-                    </p>
-                </div>
-            </div>
-
             <!-- Provisioned: show log summary -->
             <template v-if="isProvisioned">
                 <div
@@ -667,9 +763,27 @@ function deleteServer() {
                                     {{ scheduleLabel(schedule) }}
                                     <span class="mx-1.5">·</span>
                                     Retain {{ schedule.retention_count }} backups
+                                    <template v-if="schedule.last_run">
+                                        <span class="mx-1.5">·</span>
+                                        Last:
+                                        <Badge :variant="runStatusVariant(schedule.last_run.status)" class="ml-1 text-[10px] px-1.5 py-0">
+                                            {{ schedule.last_run.status }}
+                                        </Badge>
+                                    </template>
                                 </p>
                             </div>
                             <div class="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    class="size-7"
+                                    :disabled="runningScheduleId === schedule.id"
+                                    @click="runBackupNow(schedule)"
+                                    title="Run now"
+                                >
+                                    <Loader2 v-if="runningScheduleId === schedule.id" class="size-3.5 animate-spin" />
+                                    <Play v-else class="size-3.5" />
+                                </Button>
                                 <Badge :variant="schedule.is_enabled ? 'default' : 'outline'">
                                     {{ schedule.is_enabled ? 'Enabled' : 'Disabled' }}
                                 </Badge>
@@ -682,6 +796,58 @@ function deleteServer() {
                                     <Trash2 class="size-3.5" />
                                 </Button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Backups -->
+                <div
+                    class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
+                >
+                    <div
+                        class="flex items-center gap-3 border-b border-sidebar-border/70 px-5 py-4 dark:border-sidebar-border"
+                    >
+                        <Archive class="size-5 shrink-0 text-muted-foreground" />
+                        <p class="text-sm font-medium">Recent Backups</p>
+                        <span class="ml-auto text-xs text-muted-foreground">
+                            {{ backupRuns.length }} run{{ backupRuns.length !== 1 ? 's' : '' }}
+                        </span>
+                    </div>
+
+                    <div v-if="backupRuns.length === 0" class="px-5 py-8 text-center text-sm text-muted-foreground">
+                        No backup runs yet. Backups will appear here after they execute.
+                    </div>
+
+                    <div v-else class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30">
+                        <div
+                            v-for="run in backupRuns"
+                            :key="run.id"
+                            class="flex items-center justify-between px-5 py-3"
+                        >
+                            <div>
+                                <p class="text-sm font-medium">
+                                    {{ run.archive_name ?? run.destination_name }}
+                                </p>
+                                <p class="mt-0.5 text-xs text-muted-foreground">
+                                    {{ run.destination_name }}
+                                    <template v-if="run.duration_seconds !== null">
+                                        <span class="mx-1.5">·</span>
+                                        {{ formatDuration(run.duration_seconds) }}
+                                    </template>
+                                    <template v-if="run.size_bytes !== null">
+                                        <span class="mx-1.5">·</span>
+                                        {{ formatBytes(run.size_bytes) }}
+                                    </template>
+                                    <template v-if="run.completed_at">
+                                        <span class="mx-1.5">·</span>
+                                        {{ new Date(run.completed_at).toLocaleString() }}
+                                    </template>
+                                </p>
+                            </div>
+                            <Badge :variant="runStatusVariant(run.status)">
+                                <Loader2 v-if="run.status === 'running'" class="size-3 animate-spin" />
+                                {{ run.status }}
+                            </Badge>
                         </div>
                     </div>
                 </div>
@@ -702,7 +868,11 @@ function deleteServer() {
                         class="flex flex-col gap-4 py-2"
                     >
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-sm font-medium" for="schedule-dest">Backup Destination</label>
+                            <label
+                                class="text-sm font-medium"
+                                for="schedule-dest"
+                                >Backup Destination</label
+                            >
                             <select
                                 id="schedule-dest"
                                 v-model="scheduleForm.backup_destination_id"
@@ -718,12 +888,20 @@ function deleteServer() {
                                     {{ dest.name }}
                                 </option>
                             </select>
-                            <InputError :message="scheduleForm.errors.backup_destination_id" />
+                            <InputError
+                                :message="
+                                    scheduleForm.errors.backup_destination_id
+                                "
+                            />
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-sm font-medium" for="schedule-frequency">Frequency</label>
+                                <label
+                                    class="text-sm font-medium"
+                                    for="schedule-frequency"
+                                    >Frequency</label
+                                >
                                 <select
                                     id="schedule-frequency"
                                     v-model="scheduleForm.frequency"
@@ -734,38 +912,66 @@ function deleteServer() {
                                     <option value="weekly">Weekly</option>
                                     <option value="monthly">Monthly</option>
                                 </select>
-                                <InputError :message="scheduleForm.errors.frequency" />
+                                <InputError
+                                    :message="scheduleForm.errors.frequency"
+                                />
                             </div>
 
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-sm font-medium" for="schedule-time">Time</label>
+                                <label
+                                    class="text-sm font-medium"
+                                    for="schedule-time"
+                                    >Time</label
+                                >
                                 <Input
                                     id="schedule-time"
                                     v-model="scheduleForm.time"
                                     type="time"
                                     :disabled="scheduleForm.processing"
                                 />
-                                <InputError :message="scheduleForm.errors.time" />
+                                <InputError
+                                    :message="scheduleForm.errors.time"
+                                />
                             </div>
                         </div>
 
-                        <div v-if="scheduleForm.frequency === 'weekly'" class="flex flex-col gap-1.5">
-                            <label class="text-sm font-medium" for="schedule-dow">Day of Week</label>
+                        <div
+                            v-if="scheduleForm.frequency === 'weekly'"
+                            class="flex flex-col gap-1.5"
+                        >
+                            <label
+                                class="text-sm font-medium"
+                                for="schedule-dow"
+                                >Day of Week</label
+                            >
                             <select
                                 id="schedule-dow"
                                 v-model.number="scheduleForm.day_of_week"
                                 :disabled="scheduleForm.processing"
                                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                <option v-for="(name, idx) in dayNames" :key="idx" :value="idx">
+                                <option
+                                    v-for="(name, idx) in dayNames"
+                                    :key="idx"
+                                    :value="idx"
+                                >
                                     {{ name }}
                                 </option>
                             </select>
-                            <InputError :message="scheduleForm.errors.day_of_week" />
+                            <InputError
+                                :message="scheduleForm.errors.day_of_week"
+                            />
                         </div>
 
-                        <div v-if="scheduleForm.frequency === 'monthly'" class="flex flex-col gap-1.5">
-                            <label class="text-sm font-medium" for="schedule-dom">Day of Month</label>
+                        <div
+                            v-if="scheduleForm.frequency === 'monthly'"
+                            class="flex flex-col gap-1.5"
+                        >
+                            <label
+                                class="text-sm font-medium"
+                                for="schedule-dom"
+                                >Day of Month</label
+                            >
                             <Input
                                 id="schedule-dom"
                                 v-model.number="scheduleForm.day_of_month"
@@ -774,11 +980,17 @@ function deleteServer() {
                                 max="28"
                                 :disabled="scheduleForm.processing"
                             />
-                            <InputError :message="scheduleForm.errors.day_of_month" />
+                            <InputError
+                                :message="scheduleForm.errors.day_of_month"
+                            />
                         </div>
 
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-sm font-medium" for="schedule-retention">Retention count</label>
+                            <label
+                                class="text-sm font-medium"
+                                for="schedule-retention"
+                                >Retention count</label
+                            >
                             <Input
                                 id="schedule-retention"
                                 v-model.number="scheduleForm.retention_count"
@@ -787,7 +999,9 @@ function deleteServer() {
                                 max="365"
                                 :disabled="scheduleForm.processing"
                             />
-                            <InputError :message="scheduleForm.errors.retention_count" />
+                            <InputError
+                                :message="scheduleForm.errors.retention_count"
+                            />
                         </div>
 
                         <DialogFooter class="pt-2">
@@ -799,7 +1013,10 @@ function deleteServer() {
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" :disabled="scheduleForm.processing">
+                            <Button
+                                type="submit"
+                                :disabled="scheduleForm.processing"
+                            >
                                 <Loader2
                                     v-if="scheduleForm.processing"
                                     class="size-4 animate-spin"
@@ -817,11 +1034,17 @@ function deleteServer() {
                     <DialogHeader>
                         <DialogTitle>No backup destinations</DialogTitle>
                         <DialogDescription>
-                            You need to create a backup destination before you can schedule backups. Backup destinations define where your backups are stored.
+                            You need to create a backup destination before you
+                            can schedule backups. Backup destinations define
+                            where your backups are stored.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" @click="showNoDestinationsDialog = false">Cancel</Button>
+                        <Button
+                            variant="outline"
+                            @click="showNoDestinationsDialog = false"
+                            >Cancel</Button
+                        >
                         <Link :href="backupDestinationsIndex()">
                             <Button>Go to Backup Destinations</Button>
                         </Link>
@@ -835,17 +1058,25 @@ function deleteServer() {
                     <DialogHeader>
                         <DialogTitle>Delete backup schedule</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to remove this backup schedule? This action cannot be undone.
+                            Are you sure you want to remove this backup
+                            schedule? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" @click="showDeleteScheduleDialog = false">Cancel</Button>
+                        <Button
+                            variant="outline"
+                            @click="showDeleteScheduleDialog = false"
+                            >Cancel</Button
+                        >
                         <Button
                             variant="destructive"
                             :disabled="deleteScheduleForm.processing"
                             @click="deleteSchedule"
                         >
-                            <Loader2 v-if="deleteScheduleForm.processing" class="size-4 animate-spin" />
+                            <Loader2
+                                v-if="deleteScheduleForm.processing"
+                                class="size-4 animate-spin"
+                            />
                             Delete schedule
                         </Button>
                     </DialogFooter>

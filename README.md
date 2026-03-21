@@ -1,8 +1,22 @@
 # How to run this project
 
-After cloning the repository and moving into the project directory, run the following commands.
+After cloning the repository and moving into the project directory, you can use the automated script or run the commands below.
 
 **You need Docker to work on this project in the way outlined below.** If you prefer to work without Docker, it is possible, but you'll have to set up everything yourself.
+
+## Quick start (recommended)
+
+From the repository root:
+
+```shell
+./run-dev.sh
+```
+
+On a fresh clone, this runs full setup (Composer via Docker, Sail, `.env`, migrations with seeders, npm) and then starts Vite. Later runs typically only start Sail and Vite. Use `./run-dev.sh --reset` for a clean Docker volume state and a fresh database. **See [docs/run-dev.md](docs/run-dev.md)** for options, logging, and how this differs from `setup.sh`.
+
+---
+
+If you prefer to run commands yourself, the sections below mirror what **`run-dev.sh`** performs on first-time setup.
 
 ## Install the required dependencies via Docker
 
@@ -50,7 +64,7 @@ composer mf
 ./vendor/bin/sail npm run dev
 ```
 
-The above steps are performed by the [setup](setup.sh) script.
+The above steps are automated by **`run-dev.sh`** (see [docs/run-dev.md](docs/run-dev.md)). The [setup](setup.sh) script performs a related Sail-based flow (including `tunnel:sync`) but does not run the initial Docker Composer install or the first-run detection logic.
 
 ## Connect to the Laravel application
 
@@ -80,3 +94,42 @@ This project includes a built-in Netdata dashboard to monitor all your provision
 * **Dashboard:** Access the local Netdata dashboard at `http://localhost:19999`.
 * **Security:** The connection between your dashboard and the remote servers is secured using a streaming API key derived from your unique `APP_KEY`. No manual configuration is required.
 * **Automated Monitoring Setup:** The provisioning script automatically installs a **Netdata Agent** on the target server. This agent will immediately start streaming performance metrics back to your local dashboard. The agent is configured in "headless" mode, meaning it consumes minimal resources on the target server and does not store data locally.
+
+# Cloudflare Integration
+
+Configure one or more Cloudflare accounts under **Settings → Integrations**. Both API Token and Global API Key auth are supported.
+
+## DNS record operations (PHP)
+
+```php
+use App\Services\Cloudflare\CloudflareService;
+use App\Actions\Cloudflare\UpsertCloudflareDnsRecord;
+use GuzzleHttp\Psr7\HttpFactory;
+use Psr\Http\Client\ClientInterface;
+
+// Build the service from an Integration model
+$service = new CloudflareService(
+    httpClient: app(ClientInterface::class),
+    httpFactory: new HttpFactory,
+    credentials: $integration->credentials,
+);
+
+// Auto-detect the zone from a domain
+$zone   = $service->findZoneForDomain($site->domain);
+$zoneId = $zone['id'];
+
+// Upsert (create or update) — recommended for site creation
+(new UpsertCloudflareDnsRecord)->handle(
+    service: $service,
+    zoneId: $zoneId,
+    name: $site->domain,
+    type: 'A',               // 'A', 'CNAME', or 'both'
+    content: $server->ip_address,
+    proxied: true,
+    ttl: 1,                  // 1 = Auto
+    cnameContent: null,      // required when type = 'both'
+);
+
+// Delete by record ID
+$service->deleteDnsRecord(zoneId: $zoneId, recordId: 'rec-abc123');
+```

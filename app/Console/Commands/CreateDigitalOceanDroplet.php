@@ -77,7 +77,7 @@ class CreateDigitalOceanDroplet extends Command
                 $result->dropletId,
                 $result->name,
                 $result->region,
-                $result->size,
+                $result->type,
                 $result->status,
             ]]
         );

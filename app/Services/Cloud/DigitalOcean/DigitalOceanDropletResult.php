@@ -8,7 +8,7 @@ readonly class DigitalOceanDropletResult
         public int $dropletId,
         public string $name,
         public string $region,
-        public string $size,
+        public string $type,
         public string $status,
         public ?string $publicIp,
         public int|string $sshKeyId,

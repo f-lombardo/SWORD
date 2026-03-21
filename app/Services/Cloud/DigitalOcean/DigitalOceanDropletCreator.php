@@ -46,7 +46,7 @@ class DigitalOceanDropletCreator
             dropletId: (int) $droplet['id'],
             name: (string) $droplet['name'],
             region: (string) ($droplet['region']['slug'] ?? $data->region),
-            size: (string) ($droplet['size_slug'] ?? $data->serverType),
+            type: (string) ($droplet['size_slug'] ?? $data->serverType),
             status: (string) $droplet['status'],
             publicIp: $this->waitForPublicIp(
                 dropletId: (int) $droplet['id'],

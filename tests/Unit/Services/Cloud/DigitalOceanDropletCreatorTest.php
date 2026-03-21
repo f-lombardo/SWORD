@@ -43,7 +43,7 @@ test('DigitalOceanDropletCreator uploads a raw SSH key and returns droplet detai
     expect($result->dropletId)->toBe(999)
         ->and($result->name)->toBe('sword-web')
         ->and($result->region)->toBe('ams3')
-        ->and($result->size)->toBe('s-1vcpu-1gb')
+        ->and($result->type)->toBe('s-1vcpu-1gb')
         ->and($result->status)->toBe('new')
         ->and($result->publicIp)->toBe('203.0.113.10')
         ->and($result->sshKeyId)->toBe(44)

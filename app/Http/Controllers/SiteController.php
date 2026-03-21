@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Sites\StoreSiteRequest;
 use App\Http\Resources\SiteResource;
+use App\Jobs\DeleteSiteJob;
 use App\Jobs\InstallSiteJob;
 use App\Models\Site;
 use Illuminate\Http\RedirectResponse;
@@ -69,6 +70,15 @@ class SiteController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, Site $site): RedirectResponse
+    {
+        abort_unless($site->user_id === $request->user()->id, 403);
+
+        DeleteSiteJob::dispatch($site);
+
+        return redirect()->route('sites.index');
+    }
+
     public function installScript(Request $request, Site $site): \Illuminate\Http\Response
     {
         abort_unless($request->query('token') === $site->install_token, 403);
@@ -80,6 +90,18 @@ class SiteController extends Controller
                 'site' => $site->id,
                 'signature' => $site->callback_signature,
             ]),
+        ])->render();
+
+        return response($script, 200, ['Content-Type' => 'text/x-shellscript']);
+    }
+
+    public function deleteScript(Request $request, Site $site): \Illuminate\Http\Response
+    {
+        abort_unless($request->query('token') === $site->install_token, 403);
+
+        $script = view('server-scripts.sites.delete-wp', [
+            'site' => $site,
+            'server' => $site->server,
         ])->render();
 
         return response($script, 200, ['Content-Type' => 'text/x-shellscript']);

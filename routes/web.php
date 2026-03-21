@@ -43,7 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->only(['index', 'store', 'show', 'update', 'destroy']);
 
     Route::resource('sites', SiteController::class)
-        ->only(['index', 'store', 'show']);
+        ->only(['index', 'store', 'show', 'destroy']);
 
     Route::get('cloudflare', [CloudflareController::class, 'index'])->name('cloudflare.index');
     Route::get('cloudflare/{integration}', [CloudflareController::class, 'zones'])->name('cloudflare.zones');
@@ -60,6 +60,9 @@ Route::get('servers/{server}/scripts/provision', [ServerController::class, 'prov
 
 Route::get('sites/{site}/scripts/install', [SiteController::class, 'installScript'])
     ->name('sites.scripts.install');
+
+Route::get('sites/{site}/scripts/delete', [SiteController::class, 'deleteScript'])
+    ->name('sites.scripts.delete');
 
 // Public callbacks — secured by signature
 Route::post('servers/{server}/callbacks/provision', ServerProvisionCallbackController::class)

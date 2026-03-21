@@ -52,7 +52,13 @@ class SiteController extends Controller
             'db_password' => Str::random(24),
         ]);
 
-        InstallSiteJob::dispatch($site);
+        InstallSiteJob::dispatch(
+            $site,
+            $validated['wp_admin_user'],
+            $validated['wp_admin_password'],
+            $validated['wp_admin_email'],
+            $validated['wp_admin_display_name'],
+        );
 
         return redirect()->route('sites.show', $site);
     }
@@ -86,6 +92,10 @@ class SiteController extends Controller
         $script = view('server-scripts.sites.create-wp', [
             'site' => $site,
             'server' => $site->server,
+            'wpAdminUser' => $request->query('wp_admin_user', 'sword_admin'),
+            'wpAdminPassword' => $request->query('wp_admin_password', Str::random(20)),
+            'adminEmail' => $request->query('wp_admin_email', $site->user->email),
+            'adminDisplayName' => $request->query('wp_admin_display_name', $site->user->name),
             'callbackUrl' => route('sites.callbacks.install', [
                 'site' => $site->id,
                 'signature' => $site->callback_signature,

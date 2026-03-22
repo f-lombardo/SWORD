@@ -14,6 +14,7 @@ import {
     Trash2,
     Calendar,
     Plus,
+    Globe,
     Play,
     Archive,
 } from 'lucide-vue-next';
@@ -44,6 +45,7 @@ import {
     store as backupSchedulesStore,
     destroy as backupSchedulesDestroy,
 } from '@/routes/servers/backup-schedules';
+import { show as sitesShow } from '@/routes/sites';
 import type { BreadcrumbItem } from '@/types';
 
 interface BackupRunSummary {
@@ -101,6 +103,7 @@ interface ServerDetail {
     current_step: string | null;
     provision_log: ProvisionStep[];
     provisioned_at: string | null;
+    ssh_public_key: string | null;
     created_at: string;
     wget_command: string;
     callback_signature: string;
@@ -108,10 +111,20 @@ interface ServerDetail {
     last_pinged_at: string | null;
 }
 
+interface SiteRow {
+    id: number;
+    domain: string;
+    php_version: string;
+    status: string;
+    installed_at: string | null;
+    created_at: string;
+}
+
 const props = defineProps<{
     server: ServerDetail;
     backupSchedules: BackupScheduleRow[];
     backupDestinations: BackupDestinationOption[];
+    sites: SiteRow[];
     backupRuns: BackupRunRow[];
 }>();
 
@@ -382,7 +395,9 @@ function runBackupNow(schedule: BackupScheduleRow) {
 }
 
 // ── Backup run helpers ───────────────────────────────────────
-function runStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+function runStatusVariant(
+    status: string,
+): 'default' | 'secondary' | 'destructive' | 'outline' {
     switch (status) {
         case 'completed':
             return 'default';
@@ -530,8 +545,9 @@ function deleteServer() {
 
             <!-- Pending: show provisioning instructions -->
             <template v-if="isPending || isProvisioning">
-                <!-- Instructions card -->
+                <!-- Instructions card — only shown before provisioning starts -->
                 <div
+                    v-if="isPending"
                     class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
                 >
                     <div
@@ -551,6 +567,34 @@ function deleteServer() {
                         </div>
                     </div>
                     <div class="flex flex-col gap-3 p-5">
+                        <!-- Public Key label -->
+                        <div class="flex items-center gap-2">
+                            <p
+                                class="text-xs font-medium text-muted-foreground"
+                            >
+                                Public Key
+                            </p>
+                            <div class="h-px flex-1 bg-border" />
+                        </div>
+                        <div
+                            class="group relative rounded-lg border border-sidebar-border/70 bg-muted/50 dark:border-sidebar-border"
+                        >
+                            <pre
+                                class="overflow-x-auto p-4 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-foreground"
+                                >{{ server.ssh_public_key }}</pre
+                            >
+                        </div>
+
+                        <!-- Command label -->
+                        <div class="flex items-center gap-2">
+                            <p
+                                class="text-xs font-medium text-muted-foreground"
+                            >
+                                Command
+                            </p>
+                            <div class="h-px flex-1 bg-border" />
+                        </div>
+
                         <div
                             class="group relative rounded-lg border border-sidebar-border/70 bg-muted/50 dark:border-sidebar-border"
                         >
@@ -663,7 +707,26 @@ function deleteServer() {
                 </div>
             </template>
 
-            <!-- Provisioned: show log summary -->
+            <!-- Failed state -->
+            <div
+                v-if="isFailed"
+                class="flex items-start gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-5"
+            >
+                <XCircle class="mt-0.5 size-5 shrink-0 text-destructive" />
+                <div>
+                    <p class="font-medium text-destructive">
+                        Provisioning failed
+                    </p>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        The script encountered an unexpected error. Check your
+                        server logs (<code class="text-xs"
+                            >sword-provision.log</code
+                        >) for details, then try provisioning again.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Provisioned: show log, sites, backups -->
             <template v-if="isProvisioned">
                 <div
                     class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
@@ -711,6 +774,82 @@ function deleteServer() {
                     </div>
                 </div>
 
+                <!-- Sites -->
+                <div
+                    class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
+                >
+                    <div
+                        class="flex items-center gap-3 border-b border-sidebar-border/70 px-5 py-4 dark:border-sidebar-border"
+                    >
+                        <Globe class="size-5 shrink-0 text-muted-foreground" />
+                        <p class="text-sm font-medium">Sites</p>
+                        <span class="ml-auto text-xs text-muted-foreground">
+                            {{ sites.length }}
+                            {{ sites.length === 1 ? 'site' : 'sites' }}
+                        </span>
+                    </div>
+
+                    <div
+                        v-if="sites.length === 0"
+                        class="px-5 py-8 text-center text-sm text-muted-foreground"
+                    >
+                        No sites deployed on this server.
+                    </div>
+
+                    <div
+                        v-else
+                        class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30"
+                    >
+                        <Link
+                            v-for="site in sites"
+                            :key="site.id"
+                            :href="sitesShow(site.id)"
+                            class="flex items-center justify-between px-5 py-3 transition-colors hover:bg-muted/50"
+                        >
+                            <div>
+                                <p class="text-sm font-medium">
+                                    {{ site.domain }}
+                                </p>
+                                <p class="mt-0.5 text-xs text-muted-foreground">
+                                    PHP {{ site.php_version }}
+                                </p>
+                            </div>
+                            <Badge
+                                :variant="
+                                    site.status === 'installed'
+                                        ? 'default'
+                                        : site.status === 'failed'
+                                          ? 'destructive'
+                                          : 'secondary'
+                                "
+                            >
+                                <CheckCircle2
+                                    v-if="site.status === 'installed'"
+                                    class="size-3"
+                                />
+                                <Loader2
+                                    v-else-if="site.status === 'installing'"
+                                    class="size-3 animate-spin"
+                                />
+                                <XCircle
+                                    v-else-if="site.status === 'failed'"
+                                    class="size-3"
+                                />
+                                <Clock v-else class="size-3" />
+                                {{
+                                    site.status === 'installed'
+                                        ? 'Installed'
+                                        : site.status === 'installing'
+                                          ? 'Installing'
+                                          : site.status === 'failed'
+                                            ? 'Failed'
+                                            : 'Pending'
+                                }}
+                            </Badge>
+                        </Link>
+                    </div>
+                </div>
+
                 <!-- Backup Schedules -->
                 <div
                     class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border"
@@ -718,7 +857,9 @@ function deleteServer() {
                     <div
                         class="flex items-center gap-3 border-b border-sidebar-border/70 px-5 py-4 dark:border-sidebar-border"
                     >
-                        <Calendar class="size-5 shrink-0 text-muted-foreground" />
+                        <Calendar
+                            class="size-5 shrink-0 text-muted-foreground"
+                        />
                         <p class="text-sm font-medium">Backup Schedules</p>
                         <span class="ml-auto">
                             <Button
@@ -732,31 +873,48 @@ function deleteServer() {
                         </span>
                     </div>
 
-                    <div v-if="backupSchedules.length === 0" class="px-5 py-8 text-center text-sm text-muted-foreground">
+                    <div
+                        v-if="backupSchedules.length === 0"
+                        class="px-5 py-8 text-center text-sm text-muted-foreground"
+                    >
                         <template v-if="backupDestinations.length === 0">
-                            Create a backup destination first to schedule backups.
+                            Create a backup destination first to schedule
+                            backups.
                         </template>
                         <template v-else>
                             No backup schedules configured for this server.
                         </template>
                     </div>
 
-                    <div v-else class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30">
+                    <div
+                        v-else
+                        class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30"
+                    >
                         <div
                             v-for="schedule in backupSchedules"
                             :key="schedule.id"
                             class="flex items-center justify-between px-5 py-3"
                         >
                             <div>
-                                <p class="text-sm font-medium">{{ schedule.destination_name }}</p>
+                                <p class="text-sm font-medium">
+                                    {{ schedule.destination_name }}
+                                </p>
                                 <p class="mt-0.5 text-xs text-muted-foreground">
                                     {{ scheduleLabel(schedule) }}
                                     <span class="mx-1.5">·</span>
-                                    Retain {{ schedule.retention_count }} backups
+                                    Retain
+                                    {{ schedule.retention_count }} backups
                                     <template v-if="schedule.last_run">
                                         <span class="mx-1.5">·</span>
                                         Last:
-                                        <Badge :variant="runStatusVariant(schedule.last_run.status)" class="ml-1 text-[10px] px-1.5 py-0">
+                                        <Badge
+                                            :variant="
+                                                runStatusVariant(
+                                                    schedule.last_run.status,
+                                                )
+                                            "
+                                            class="ml-1 px-1.5 py-0 text-[10px]"
+                                        >
                                             {{ schedule.last_run.status }}
                                         </Badge>
                                     </template>
@@ -767,15 +925,30 @@ function deleteServer() {
                                     variant="outline"
                                     size="icon"
                                     class="size-7"
-                                    :disabled="runningScheduleId === schedule.id"
+                                    :disabled="
+                                        runningScheduleId === schedule.id
+                                    "
                                     @click="runBackupNow(schedule)"
                                     title="Run now"
                                 >
-                                    <Loader2 v-if="runningScheduleId === schedule.id" class="size-3.5 animate-spin" />
+                                    <Loader2
+                                        v-if="runningScheduleId === schedule.id"
+                                        class="size-3.5 animate-spin"
+                                    />
                                     <Play v-else class="size-3.5" />
                                 </Button>
-                                <Badge :variant="schedule.is_enabled ? 'default' : 'outline'">
-                                    {{ schedule.is_enabled ? 'Enabled' : 'Disabled' }}
+                                <Badge
+                                    :variant="
+                                        schedule.is_enabled
+                                            ? 'default'
+                                            : 'outline'
+                                    "
+                                >
+                                    {{
+                                        schedule.is_enabled
+                                            ? 'Enabled'
+                                            : 'Disabled'
+                                    }}
                                 </Badge>
                                 <Button
                                     variant="ghost"
@@ -797,18 +970,29 @@ function deleteServer() {
                     <div
                         class="flex items-center gap-3 border-b border-sidebar-border/70 px-5 py-4 dark:border-sidebar-border"
                     >
-                        <Archive class="size-5 shrink-0 text-muted-foreground" />
+                        <Archive
+                            class="size-5 shrink-0 text-muted-foreground"
+                        />
                         <p class="text-sm font-medium">Recent Backups</p>
                         <span class="ml-auto text-xs text-muted-foreground">
-                            {{ backupRuns.length }} run{{ backupRuns.length !== 1 ? 's' : '' }}
+                            {{ backupRuns.length }} run{{
+                                backupRuns.length !== 1 ? 's' : ''
+                            }}
                         </span>
                     </div>
 
-                    <div v-if="backupRuns.length === 0" class="px-5 py-8 text-center text-sm text-muted-foreground">
-                        No backup runs yet. Backups will appear here after they execute.
+                    <div
+                        v-if="backupRuns.length === 0"
+                        class="px-5 py-8 text-center text-sm text-muted-foreground"
+                    >
+                        No backup runs yet. Backups will appear here after they
+                        execute.
                     </div>
 
-                    <div v-else class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30">
+                    <div
+                        v-else
+                        class="divide-y divide-sidebar-border/50 dark:divide-sidebar-border/30"
+                    >
                         <div
                             v-for="run in backupRuns"
                             :key="run.id"
@@ -816,13 +1000,19 @@ function deleteServer() {
                         >
                             <div>
                                 <p class="text-sm font-medium">
-                                    {{ run.archive_name ?? run.destination_name }}
+                                    {{
+                                        run.archive_name ?? run.destination_name
+                                    }}
                                 </p>
                                 <p class="mt-0.5 text-xs text-muted-foreground">
                                     {{ run.destination_name }}
-                                    <template v-if="run.duration_seconds !== null">
+                                    <template
+                                        v-if="run.duration_seconds !== null"
+                                    >
                                         <span class="mx-1.5">·</span>
-                                        {{ formatDuration(run.duration_seconds) }}
+                                        {{
+                                            formatDuration(run.duration_seconds)
+                                        }}
                                     </template>
                                     <template v-if="run.size_bytes !== null">
                                         <span class="mx-1.5">·</span>
@@ -830,12 +1020,19 @@ function deleteServer() {
                                     </template>
                                     <template v-if="run.completed_at">
                                         <span class="mx-1.5">·</span>
-                                        {{ new Date(run.completed_at).toLocaleString() }}
+                                        {{
+                                            new Date(
+                                                run.completed_at,
+                                            ).toLocaleString()
+                                        }}
                                     </template>
                                 </p>
                             </div>
                             <Badge :variant="runStatusVariant(run.status)">
-                                <Loader2 v-if="run.status === 'running'" class="size-3 animate-spin" />
+                                <Loader2
+                                    v-if="run.status === 'running'"
+                                    class="size-3 animate-spin"
+                                />
                                 {{ run.status }}
                             </Badge>
                         </div>

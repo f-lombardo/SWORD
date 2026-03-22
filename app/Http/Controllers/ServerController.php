@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Servers\StoreServerRequest;
 use App\Http\Resources\ServerResource;
 use App\Jobs\CreateCloudServerJob;
+use App\Jobs\RunAnsible;
 use App\Models\BackupDestination;
 use App\Models\Integration;
 use App\Models\Server;
+use App\Models\Site;
 use App\Services\ServerNameGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -67,6 +69,9 @@ class ServerController extends Controller
             CreateCloudServerJob::dispatch($server, $integration);
         }
 
+        // @TODO This will be a problem, if it's executed before adding the public key.
+        dispatch(new RunAnsible($server->id));
+
         return redirect()->route('servers.show', $server);
     }
 
@@ -113,6 +118,18 @@ class ServerController extends Controller
                 'name' => $d->name,
             ]);
 
+        $sites = $server->sites()
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (Site $site) => [
+                'id' => $site->id,
+                'domain' => $site->domain,
+                'php_version' => $site->php_version,
+                'status' => $site->status,
+                'installed_at' => $site->installed_at?->toIso8601String(),
+                'created_at' => $site->created_at->toIso8601String(),
+            ]);
+
         $backupRuns = $server->backupRuns()
             ->with('backupDestination')
             ->orderByDesc('created_at')
@@ -137,6 +154,7 @@ class ServerController extends Controller
             ]),
             'backupSchedules' => $backupSchedules,
             'backupDestinations' => $backupDestinations,
+            'sites' => $sites,
             'backupRuns' => $backupRuns,
         ]);
     }

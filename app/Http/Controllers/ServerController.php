@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Servers\StoreServerRequest;
 use App\Http\Resources\ServerResource;
+use App\Jobs\CreateCloudServerJob;
 use App\Models\BackupDestination;
+use App\Models\Integration;
 use App\Models\Server;
 use App\Services\ServerNameGenerator;
 use Illuminate\Http\JsonResponse;
@@ -23,8 +25,19 @@ class ServerController extends Controller
             ->get()
             ->map(fn (Server $server) => (new ServerResource($server))->toArray($request));
 
+        $cloudIntegrations = $request->user()
+            ->integrations()
+            ->whereIn('provider', ['digital_ocean', 'hetzner'])
+            ->get()
+            ->map(fn (Integration $integration) => [
+                'id' => $integration->id,
+                'name' => $integration->name,
+                'provider' => $integration->provider,
+            ]);
+
         return Inertia::render('servers/Index', [
             'servers' => $servers,
+            'cloudIntegrations' => $cloudIntegrations,
         ]);
     }
 
@@ -40,7 +53,19 @@ class ServerController extends Controller
 
     public function store(StoreServerRequest $request): RedirectResponse
     {
-        $server = $request->user()->servers()->create($request->validated());
+        $validated = $request->validated();
+
+        $server = $request->user()->servers()->create($validated);
+
+        if (! empty($validated['integration_id'])) {
+            $integration = Integration::findOrFail($validated['integration_id']);
+
+            $server->update([
+                'provider' => $integration->provider,
+            ]);
+
+            CreateCloudServerJob::dispatch($server, $integration);
+        }
 
         return redirect()->route('servers.show', $server);
     }

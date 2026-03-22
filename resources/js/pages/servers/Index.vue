@@ -45,6 +45,7 @@ interface ServerRow {
     provisioned_at: string | null;
     created_at: string;
     is_online: boolean;
+    sites_count: number;
 }
 
 interface CloudIntegration {
@@ -340,6 +341,20 @@ function statusLabel(status: string): string {
                                 <span v-if="server.region">{{
                                     server.region
                                 }}</span>
+
+                                <template
+                                    v-if="server.status === 'provisioned'"
+                                >
+                                    <span class="mx-1.5">·</span>
+                                    <span
+                                        >{{ server.sites_count }}
+                                        {{
+                                            server.sites_count === 1
+                                                ? 'site'
+                                                : 'sites'
+                                        }}</span
+                                    >
+                                </template>
                             </p>
                         </div>
                     </div>
@@ -364,7 +379,11 @@ function statusLabel(status: string): string {
                                         : 'animate-pulse bg-red-500'
                                 "
                             />
-                            {{ server.is_online ? 'Online' : 'Offline' }}
+                            {{
+                                server.is_online
+                                    ? 'Online'
+                                    : 'Offline'
+                            }}
                         </Badge>
                         <Badge :variant="statusVariant(server.status)">
                             <CheckCircle2
